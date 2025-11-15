@@ -31,8 +31,8 @@ const OurApproach = () => {
         <section className="approach-image-section">
           <div className="approach-image-container">
             <img
-              src="/images/OurApproach.PNG"
-              alt="Our Approach Diagram"
+              src="/images/CloudERPAdvantages.PNG"
+              alt="CloudERP Advantages Diagram"
               className="approach-diagram"
             />
           </div>
