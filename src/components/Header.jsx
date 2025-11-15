@@ -5,6 +5,7 @@ import './Header.css';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
 
@@ -18,6 +19,7 @@ const Header = () => {
 
   useEffect(() => {
     setIsMenuOpen(false);
+    setIsSidebarOpen(false);
   }, [location]);
 
   const navItems = [
@@ -30,25 +32,54 @@ const Header = () => {
   ];
 
   return (
-    <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
-      <div className="container">
-        <div className="header-content">
-          {/* Contact Info */}
-          <div className="header-contact-info">
-            <a href="tel:+15103979646" className="header-contact-link">
-              <Phone size={16} />
-              <span>+1 510.397.9646</span>
-            </a>
-            <a href="mailto:info@clouderpsuites.com" className="header-contact-link">
+    <>
+      {/* Left Sidebar */}
+      <div className={`header-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-content">
+          <Link to="/" className="sidebar-logo">
+            <img src="/images/logo-light.png" alt="CloudERP Suites" />
+          </Link>
+
+          <div className="sidebar-links">
+            <Link to="/contact" className="sidebar-link">
+              Schedule Review Session
+            </Link>
+            <a href="mailto:info@clouderpsuites.com" className="sidebar-link">
               <Mail size={16} />
               <span>info@clouderpsuites.com</span>
             </a>
+            <a href="tel:+15103979646" className="sidebar-link">
+              <Phone size={16} />
+              <span>+1 510.397.9646</span>
+            </a>
           </div>
+        </div>
+      </div>
 
-          {/* Logo */}
-          <Link to="/" className="logo">
-            <img src="/images/logo-main.png" alt="CloudERP Suites" className="logo-image" />
-          </Link>
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="container">
+          <div className="header-content">
+            {/* Sidebar Toggle */}
+            <button
+              className="sidebar-toggle"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              aria-label="Toggle sidebar"
+            >
+              <Menu size={20} />
+            </button>
+
+            {/* Logo */}
+            <Link to="/" className="logo">
+              <img src="/images/logo-main.png" alt="CloudERP Suites" className="logo-image" />
+            </Link>
 
           {/* Desktop Navigation */}
           <nav className="nav-desktop">
@@ -97,6 +128,7 @@ const Header = () => {
         </nav>
       </div>
     </header>
+    </>
   );
 };
 
