@@ -6,7 +6,7 @@ Modern, fully responsive website for CloudERP Suites - Expert NetSuite implement
 
 **Repository**: https://github.com/pbulbule13/clouderpsuites
 **Folder Location**: /home/prashilbulbule13/projects/clouderpsuites
-**Live Site**: https://clouderpsuites-xf3nn3udga-uc.a.run.app
+**Live Site**: https://clouderpsuites-694708874867.us-central1.run.app
 
 ## Features
 
