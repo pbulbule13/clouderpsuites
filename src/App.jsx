@@ -4,6 +4,8 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import AIServices from './pages/AIServices';
+import Services from './pages/Services';
+import SolutionPartners from './pages/SolutionPartners';
 import About from './pages/About';
 import OurApproach from './pages/OurApproach';
 import Contact from './pages/Contact';
@@ -17,6 +19,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ai-services" element={<AIServices />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/solution-partners" element={<SolutionPartners />} />
           <Route path="/about" element={<About />} />
           <Route path="/our-approach" element={<OurApproach />} />
           <Route path="/contact" element={<Contact />} />

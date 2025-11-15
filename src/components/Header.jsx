@@ -23,8 +23,8 @@ const Header = () => {
   const navItems = [
     { label: 'Cloud Products', path: '/' },
     { label: 'AI Automation', path: '/ai-services' },
-    { label: 'Services', path: '/#services' },
-    { label: 'Solution Partners', path: '/#partners' },
+    { label: 'Services', path: '/services' },
+    { label: 'Solution Partners', path: '/solution-partners' },
     { label: 'Our Approach', path: '/our-approach' },
     { label: 'About Us', path: '/about' }
   ];

@@ -1,0 +1,86 @@
+/* Solution Partners Page Styles */
+
+.partners-page {
+  padding-top: 0;
+}
+
+.partners-content {
+  padding: 4rem 0;
+  background: white;
+}
+
+.partners-intro {
+  max-width: 800px;
+  margin: 0 auto 4rem;
+  text-align: center;
+}
+
+.intro-text {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--text-gray);
+  margin-bottom: 1.5rem;
+}
+
+.partners-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .partners-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .partners-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.partner-card {
+  background: white;
+  padding: 3rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  text-align: center;
+  border: 2px solid var(--border-gray);
+}
+
+.partner-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary-blue);
+}
+
+.partner-card h3 {
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.partners-cta {
+  padding: 4rem 0;
+  background: var(--bg-light);
+}
+
+@media (max-width: 768px) {
+  .partners-content {
+    padding: 3rem 0;
+  }
+
+  .partners-intro {
+    margin-bottom: 3rem;
+  }
+
+  .partner-card {
+    padding: 2rem 1.5rem;
+  }
+}
