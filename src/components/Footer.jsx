@@ -12,14 +12,10 @@ const Footer = () => {
           {/* Company Info */}
           <div className="footer-col">
             <div className="footer-logo">
-              <div className="logo-text">
-                <span className="logo-cloud">Cloud</span>
-                <span className="logo-erp">ERP</span>
-                <span className="logo-suites">Suites</span>
-              </div>
+              <img src="/images/logo-light.png" alt="CloudERP Suites" width="135" height="34" />
             </div>
             <p className="footer-description">
-              Expert NetSuite implementation and AI-powered business automation solutions.
+              Cloud ERP Suites delivers an environment where firms from diverse backgrounds can work together towards achieving their own common goals.
             </p>
             <div className="footer-social">
               <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
@@ -35,10 +31,10 @@ const Footer = () => {
           <div className="footer-col">
             <h4 className="footer-heading">Quick Links</h4>
             <ul className="footer-links">
-              <li><Link to="/">Home</Link></li>
-              <li><Link to="/ai-services">AI Services</Link></li>
+              <li><Link to="/">Products</Link></li>
               <li><Link to="/about">About Us</Link></li>
-              <li><Link to="/our-approach">Our Approach</Link></li>
+              <li><Link to="/contact">Appointment</Link></li>
+              <li><Link to="/ai-services">Services</Link></li>
               <li><Link to="/contact">Contact Us</Link></li>
             </ul>
           </div>

@@ -21,10 +21,10 @@ const Header = () => {
   }, [location]);
 
   const navItems = [
-    { label: 'Cloud Products', path: '/#products' },
+    { label: 'Cloud Products', path: '/' },
     { label: 'AI Automation', path: '/ai-services' },
     { label: 'Services', path: '/#services' },
-    { label: 'Partners', path: '/#partners' },
+    { label: 'Solution Partners', path: '/#partners' },
     { label: 'Our Approach', path: '/our-approach' },
     { label: 'About Us', path: '/about' }
   ];
@@ -35,11 +35,7 @@ const Header = () => {
         <div className="header-content">
           {/* Logo */}
           <Link to="/" className="logo">
-            <div className="logo-text">
-              <span className="logo-cloud">Cloud</span>
-              <span className="logo-erp">ERP</span>
-              <span className="logo-suites">Suites</span>
-            </div>
+            <img src="/images/logo-main.png" alt="CloudERP Suites" className="logo-image" />
           </Link>
 
           {/* Desktop Navigation */}
@@ -58,7 +54,7 @@ const Header = () => {
           {/* CTA Button */}
           <div className="header-cta">
             <Link to="/contact" className="btn btn-primary">
-              Schedule Consultation
+              Schedule Review Session
             </Link>
           </div>
 

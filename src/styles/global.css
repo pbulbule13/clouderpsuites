@@ -1,23 +1,25 @@
 /* Global Styles - Mobile-First Responsive Design */
 
 :root {
-  /* Color Palette - Based on CloudERP Suites branding */
-  --primary-blue: #0066cc;
-  --primary-dark: #004999;
-  --primary-light: #3385d6;
-  --accent-orange: #ff6600;
-  --accent-orange-light: #ff8533;
+  /* Color Palette - Exact match from clouderpsuites.com */
+  --primary-blue: #008EF0;
+  --primary-dark: #0a71d3;
+  --primary-light: #0b7eec;
+  --accent-orange: #fccb56;
+  --accent-orange-light: #fde74c;
 
-  --text-dark: #1a1a1a;
+  --text-dark: #111111;
   --text-gray: #4a4a4a;
   --text-light: #666666;
-  --bg-light: #f8f9fa;
+  --bg-light: #f8f9f9;
   --bg-white: #ffffff;
+  --bg-dark: #212121;
+  --bg-cape-cod: #1c2e3f;
   --border-gray: #e0e0e0;
 
-  /* Typography */
-  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-heading: 'Poppins', sans-serif;
+  /* Typography - Matching original site */
+  --font-primary: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Playfair Display', serif;
 
   /* Spacing */
   --spacing-xs: 0.5rem;
