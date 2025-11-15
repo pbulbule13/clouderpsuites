@@ -4,6 +4,47 @@
   padding-top: 70px;
 }
 
+/* Approach Heading */
+.approach-heading {
+  padding: var(--spacing-3xl) 0;
+  text-align: center;
+}
+
+.approach-heading h3 {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.approach-heading .text-thin {
+  font-weight: 300;
+}
+
+/* Approach Image Section */
+.approach-image-section {
+  background-color: var(--bg-light);
+  padding: 0;
+  margin: 0;
+}
+
+.approach-image-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #4a4a4a;
+}
+
+.approach-diagram {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
 /* Approach Hero */
 .approach-hero {
   background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%);

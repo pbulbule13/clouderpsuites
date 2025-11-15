@@ -18,43 +18,23 @@ const OurApproach = () => {
           </div>
         </section>
 
-        {/* Main Content */}
-        <section className="approach-content">
+        {/* Heading Section */}
+        <section className="approach-heading">
           <div className="container">
-            <div className="approach-main">
-              <h2>Our Philosophy</h2>
-
-              <p className="approach-description">
-                Cloud ERP Suites delivers an environment where firms from diverse backgrounds can work
-                together towards achieving their own common goals.
-              </p>
-
-              <div className="approach-values">
-                <div className="value-item">
-                  <h3>Collaborative Environment</h3>
-                  <p>
-                    We focus on facilitating cross-organizational partnerships that enable businesses
-                    to collaborate effectively.
-                  </p>
-                </div>
-
-                <div className="value-item">
-                  <h3>Inclusive Approach</h3>
-                  <p>
-                    Organizations from varying sectors can participate and benefit from our platform
-                    and expertise.
-                  </p>
-                </div>
-
-                <div className="value-item">
-                  <h3>Goal Alignment</h3>
-                  <p>
-                    Our platform supports both individual and collective objectives, ensuring everyone
-                    succeeds together.
-                  </p>
-                </div>
-              </div>
+            <div className="text-center">
+              <h3>Our <span className="text-thin">Approach</span></h3>
             </div>
+          </div>
+        </section>
+
+        {/* Main Approach Image */}
+        <section className="approach-image-section">
+          <div className="approach-image-container">
+            <img
+              src="/images/OurApproach.PNG"
+              alt="Our Approach Diagram"
+              className="approach-diagram"
+            />
           </div>
         </section>
 
