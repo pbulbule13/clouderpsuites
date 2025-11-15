@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, Phone, Mail } from 'lucide-react';
 import './Header.css';
 
 const Header = () => {
@@ -33,6 +33,18 @@ const Header = () => {
     <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
       <div className="container">
         <div className="header-content">
+          {/* Contact Info */}
+          <div className="header-contact-info">
+            <a href="tel:+15103979646" className="header-contact-link">
+              <Phone size={16} />
+              <span>+1 510.397.9646</span>
+            </a>
+            <a href="mailto:info@clouderpsuites.com" className="header-contact-link">
+              <Mail size={16} />
+              <span>info@clouderpsuites.com</span>
+            </a>
+          </div>
+
           {/* Logo */}
           <Link to="/" className="logo">
             <img src="/images/logo-main.png" alt="CloudERP Suites" className="logo-image" />

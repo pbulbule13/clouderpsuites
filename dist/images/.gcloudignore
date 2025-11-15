@@ -1,0 +1,9 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+README.md
+.vscode/
+.idea/
+*.log
+.DS_Store

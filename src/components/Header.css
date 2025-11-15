@@ -26,6 +26,37 @@
   gap: 1rem;
 }
 
+/* Header Contact Info */
+.header-contact-info {
+  display: none;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .header-contact-info {
+    display: flex;
+  }
+}
+
+.header-contact-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-dark);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.header-contact-link:hover {
+  color: var(--primary-blue);
+}
+
+.header-contact-link svg {
+  flex-shrink: 0;
+}
+
 /* Logo */
 .logo {
   display: flex;
