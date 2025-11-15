@@ -1,8 +1,45 @@
 /* Header Styles - Fully Responsive */
 
-.header {
+/* Top Info Bar */
+.top-info-bar {
   position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-cape-cod);
+  z-index: 1001;
+  padding: 0.75rem 0;
+}
+
+.top-info-content {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  justify-content: flex-start;
+}
+
+.top-info-link {
+  color: white;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.3s ease;
+  white-space: nowrap;
+}
+
+.top-info-link:hover {
+  color: var(--accent-orange);
+}
+
+/* Hide top bar on mobile */
+@media (max-width: 767px) {
+  .top-info-bar {
+    display: none;
+  }
+}
+
+.header {
+  position: fixed;
+  top: 53px; /* Height of top info bar */
   left: 0;
   right: 0;
   z-index: 1000;
@@ -11,6 +48,12 @@
   -webkit-backdrop-filter: blur(10px);
   transition: all 0.3s ease;
   border-bottom: 1px solid transparent;
+}
+
+@media (max-width: 767px) {
+  .header {
+    top: 0;
+  }
 }
 
 .header.scrolled {

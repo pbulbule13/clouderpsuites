@@ -30,39 +30,57 @@ const Header = () => {
   ];
 
   return (
-    <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
-      <div className="container">
-        <div className="header-content">
-          {/* Logo */}
-          <Link to="/" className="logo">
-            <img
-              src="/images/logo-main.png"
-              alt="CloudERP Suites"
-              className="logo-image"
-              width="240"
-              height="40"
-            />
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="nav-desktop">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="nav-link"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* CTA Button */}
-          <div className="header-cta">
-            <Link to="/contact" className="btn btn-primary">
+    <>
+      {/* Top Info Bar */}
+      <div className="top-info-bar">
+        <div className="container">
+          <div className="top-info-content">
+            <Link to="/contact" className="top-info-link">
               Schedule Review Session
             </Link>
+            <a href="mailto:info@clouderpsuites.com" className="top-info-link">
+              info@clouderpsuites.com
+            </a>
+            <a href="tel:+15103979646" className="top-info-link">
+              +1 510.397.9646
+            </a>
           </div>
+        </div>
+      </div>
+
+      <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="container">
+          <div className="header-content">
+            {/* Logo */}
+            <Link to="/" className="logo">
+              <img
+                src="/images/logo-main.png"
+                alt="CloudERP Suites"
+                className="logo-image"
+                width="240"
+                height="40"
+              />
+            </Link>
+
+            {/* Desktop Navigation */}
+            <nav className="nav-desktop">
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="nav-link"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* CTA Button */}
+            <div className="header-cta">
+              <Link to="/contact" className="btn btn-primary">
+                Schedule Review Session
+              </Link>
+            </div>
 
           {/* Mobile Menu Toggle */}
           <button
@@ -91,6 +109,7 @@ const Header = () => {
         </nav>
       </div>
     </header>
+    </>
   );
 };
 

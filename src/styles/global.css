@@ -67,6 +67,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Adjust for fixed header with top info bar on desktop */
+@media (min-width: 768px) {
+  body {
+    padding-top: 53px;
+  }
+}
+
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
