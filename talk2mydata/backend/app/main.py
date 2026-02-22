@@ -18,14 +18,17 @@ async def lifespan(app: FastAPI):
     app.state.genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
     yield
     app.state.bq_client.close()
+    await app.state.firestore_client.close()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Talk2MyData API", version="1.0.0", lifespan=lifespan)
 
-    app.add_middleware(GlobalErrorMiddleware)
+    # Middleware stack (last added = outermost):
+    # CORS -> GlobalError -> RequestId -> Auth -> App
     app.add_middleware(AuthMiddleware)
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(GlobalErrorMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,

@@ -38,7 +38,7 @@ class ConnectorService:
         if selected_sheets:
             available = [d for d in available if d.id in selected_sheets]
 
-        self.dataset_service.ensure_user_dataset(user_id)
+        await self.dataset_service.ensure_user_dataset(user_id)
 
         results = []
         for dataset_info in available:
@@ -67,7 +67,7 @@ class ConnectorService:
             schema = infer_bigquery_schema(full_df)
             table_name = sanitize_column_name(dataset_info.name)
 
-            table = self.dataset_service.load_dataframe(
+            table = await self.dataset_service.load_dataframe(
                 user_id, table_name, full_df, schema
             )
 

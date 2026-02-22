@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from google.cloud import bigquery, firestore
 from google.cloud.firestore import AsyncClient
 
+from app.common.async_utils import run_sync
 from app.common.exceptions import SQLValidationError
 from app.config import settings
 from app.datasets.service import DatasetService
@@ -57,7 +58,7 @@ class QueryService:
             return
 
         # Build schema context
-        user_dataset = f"{settings.BQ_DATASET_PREFIX}{user_id[:20]}"
+        user_dataset = DatasetService.user_dataset_name(user_id)
         schema_context = self.sql_gen.build_schema_context(
             dataset_meta, settings.GCP_PROJECT, user_dataset
         )
@@ -71,10 +72,11 @@ class QueryService:
         max_retries = 3
         last_error = None
         sql_response = None
+        retry_history = list(history)  # Isolated copy to prevent prompt injection
 
         for attempt in range(max_retries):
             sql_response = await self.sql_gen.generate_sql(
-                question, schema_context, history, settings.GCP_PROJECT, user_dataset
+                question, schema_context, retry_history, settings.GCP_PROJECT, user_dataset
             )
 
             if not sql_response.sql:
@@ -92,7 +94,7 @@ class QueryService:
 
             # Validate
             try:
-                self.validator.validate(sql_response.sql, user_dataset)
+                await self.validator.validate(sql_response.sql, user_dataset)
                 break
             except SQLValidationError as e:
                 last_error = e
@@ -100,27 +102,27 @@ class QueryService:
                     type="thinking",
                     content=f"Fixing query (attempt {attempt + 2})...",
                 )
-                history.append({"role": "model", "content": sql_response.sql})
-                history.append(
+                retry_history.append({"role": "model", "content": sql_response.sql})
+                retry_history.append(
                     {
                         "role": "user",
-                        "content": f"That SQL had errors: {e.errors}. Fix it.",
+                        "content": "The previous SQL query had validation errors. Please generate a corrected version.",
                     }
                 )
         else:
             yield QueryEvent(
                 type="error",
-                content=f"Could not generate a valid query: {last_error.errors}",
+                content="Could not generate a valid query after multiple attempts.",
             )
             return
 
         # Execute query
         yield QueryEvent(type="thinking", content="Running query...")
         try:
-            rows = self.bq.query_and_wait(sql_response.sql)
-            df = rows.to_dataframe()
-        except Exception as e:
-            yield QueryEvent(type="error", content=f"Query execution failed: {e}")
+            rows = await run_sync(self.bq.query_and_wait, sql_response.sql)
+            df = await run_sync(rows.to_dataframe)
+        except Exception:
+            yield QueryEvent(type="error", content="Query execution failed. Please try rephrasing your question.")
             return
 
         # Format results

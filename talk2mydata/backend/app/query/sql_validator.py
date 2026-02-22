@@ -1,6 +1,7 @@
 import sqlglot
 from google.cloud import bigquery
 
+from app.common.async_utils import run_sync
 from app.common.exceptions import SQLValidationError
 from app.config import settings
 
@@ -14,7 +15,7 @@ class SQLValidator:
     def __init__(self, bq_client: bigquery.Client):
         self.bq = bq_client
 
-    def validate(self, sql: str, allowed_dataset: str) -> dict:
+    async def validate(self, sql: str, allowed_dataset: str) -> dict:
         errors = []
 
         if not sql or not sql.strip():
@@ -39,11 +40,28 @@ class SQLValidator:
         if not isinstance(parsed, sqlglot.exp.Select):
             raise SQLValidationError(["Only SELECT queries are allowed"])
 
-        # Stage 3: Check dataset access
-        for table in parsed.find_all(sqlglot.exp.Table):
-            table_str = str(table)
-            if allowed_dataset and allowed_dataset not in table_str:
-                errors.append(f"Unauthorized table access: {table_str}")
+        # Stage 3: Check dataset access via AST exact match
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        if not tables:
+            errors.append("Query must reference at least one table")
+
+        for table in tables:
+            table_db = table.db
+            table_catalog = table.args.get("catalog")
+
+            # Reject tables without explicit dataset qualifier
+            if not table_db:
+                errors.append(
+                    f"Table '{table.name}' must be fully qualified with dataset"
+                )
+                continue
+
+            if table_db != allowed_dataset:
+                errors.append(f"Unauthorized dataset access: {table_db}")
+
+            # Validate project if specified
+            if table_catalog and table_catalog.name != settings.GCP_PROJECT:
+                errors.append(f"Unauthorized project access: {table_catalog.name}")
 
         if errors:
             raise SQLValidationError(errors)
@@ -51,7 +69,7 @@ class SQLValidator:
         # Stage 4: BigQuery dry-run (cost + semantic validation)
         job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
         try:
-            dry_run = self.bq.query(sql, job_config=job_config)
+            dry_run = await run_sync(self.bq.query, sql, job_config=job_config)
             bytes_processed = dry_run.total_bytes_processed or 0
             if bytes_processed > settings.MAX_QUERY_BYTES_SCANNED:
                 raise SQLValidationError(

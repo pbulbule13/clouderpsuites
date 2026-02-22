@@ -1,7 +1,10 @@
+import hashlib
+
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud.firestore import AsyncClient
 
+from app.common.async_utils import run_sync
 from app.config import settings
 from app.datasets.schema_inference import sanitize_column_name
 
@@ -11,16 +14,21 @@ class DatasetService:
         self.bq = bq_client
         self.db = db
 
-    def _user_dataset_id(self, user_id: str) -> str:
-        return f"{settings.GCP_PROJECT}.{settings.BQ_DATASET_PREFIX}{user_id[:20]}"
+    @staticmethod
+    def user_dataset_name(user_id: str) -> str:
+        """Deterministic, collision-resistant dataset name from user ID."""
+        return f"{settings.BQ_DATASET_PREFIX}{hashlib.sha256(user_id.encode()).hexdigest()[:20]}"
 
-    def ensure_user_dataset(self, user_id: str):
+    def _user_dataset_id(self, user_id: str) -> str:
+        return f"{settings.GCP_PROJECT}.{self.user_dataset_name(user_id)}"
+
+    async def ensure_user_dataset(self, user_id: str):
         dataset_id = self._user_dataset_id(user_id)
         dataset = bigquery.Dataset(dataset_id)
         dataset.location = "US"
-        self.bq.create_dataset(dataset, exists_ok=True)
+        await run_sync(self.bq.create_dataset, dataset, exists_ok=True)
 
-    def load_dataframe(
+    async def load_dataframe(
         self,
         user_id: str,
         table_name: str,
@@ -38,9 +46,11 @@ class DatasetService:
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
             create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
         )
-        job = self.bq.load_table_from_dataframe(df, table_ref, job_config=job_config)
-        job.result()
-        return self.bq.get_table(table_ref)
+        job = await run_sync(
+            self.bq.load_table_from_dataframe, df, table_ref, job_config=job_config
+        )
+        await run_sync(job.result)
+        return await run_sync(self.bq.get_table, table_ref)
 
     async def register_dataset(self, user_id: str, dataset_meta: dict):
         doc_ref = (
@@ -78,7 +88,7 @@ class DatasetService:
         # Delete BigQuery table
         bq_dataset = self._user_dataset_id(user_id)
         table_ref = f"{bq_dataset}.{dataset_meta['table_name']}"
-        self.bq.delete_table(table_ref, not_found_ok=True)
+        await run_sync(self.bq.delete_table, table_ref, not_found_ok=True)
 
         # Delete Firestore metadata
         await (

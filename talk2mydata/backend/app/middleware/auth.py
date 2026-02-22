@@ -1,8 +1,12 @@
+import asyncio
+
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from app.config import settings
 
 PUBLIC_PATHS = {"/health", "/docs", "/openapi.json"}
 
@@ -18,8 +22,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         token = auth_header.removeprefix("Bearer ")
         try:
-            idinfo = id_token.verify_oauth2_token(
-                token, google_requests.Request()
+            idinfo = await asyncio.to_thread(
+                id_token.verify_oauth2_token,
+                token, google_requests.Request(), audience=settings.GOOGLE_CLIENT_ID,
             )
             request.state.user_id = idinfo["sub"]
             request.state.user_email = idinfo["email"]
