@@ -1,9 +1,14 @@
+import logging
+import re
+
 import sqlglot
 from google.cloud import bigquery
 
 from app.common.async_utils import run_sync
 from app.common.exceptions import SQLValidationError
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 BLOCKED_KEYWORDS = {
     "DROP", "DELETE", "UPDATE", "INSERT", "ALTER",
@@ -21,10 +26,10 @@ class SQLValidator:
         if not sql or not sql.strip():
             raise SQLValidationError(["Empty SQL query"])
 
-        # Stage 1: Block dangerous keywords
-        sql_upper = sql.upper()
+        # Stage 1: Block dangerous keywords (regex word-boundary matching)
+        normalized = re.sub(r"\s+", " ", sql.strip()).upper()
         for kw in BLOCKED_KEYWORDS:
-            if f" {kw} " in f" {sql_upper} " or sql_upper.startswith(f"{kw} "):
+            if re.search(rf"\b{kw}\b", normalized):
                 errors.append(f"Disallowed operation: {kw}")
 
         if errors:
@@ -81,6 +86,9 @@ class SQLValidator:
         except SQLValidationError:
             raise
         except Exception as e:
-            raise SQLValidationError([f"BigQuery validation error: {e}"])
+            logger.error("BigQuery dry-run failed: %s", e)
+            raise SQLValidationError(
+                ["Query could not be validated against the database"]
+            )
 
         return {"valid": True, "bytes_processed": bytes_processed}

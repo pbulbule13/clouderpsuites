@@ -1,10 +1,16 @@
 import asyncio
 from collections.abc import Callable
-from typing import TypeVar
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from typing import ParamSpec, TypeVar
 
+P = ParamSpec("P")
 T = TypeVar("T")
 
+_pool = ThreadPoolExecutor(max_workers=20)
 
-async def run_sync(func: Callable[..., T], *args, **kwargs) -> T:
-    """Run a blocking function in a thread pool to avoid event loop starvation."""
-    return await asyncio.to_thread(func, *args, **kwargs)
+
+async def run_sync(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    """Run a blocking function in a dedicated thread pool."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_pool, partial(func, *args, **kwargs))

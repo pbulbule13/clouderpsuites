@@ -1,11 +1,12 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from google.cloud import bigquery, firestore
 from google.cloud.firestore import AsyncClient
 
 from app.common.async_utils import run_sync
-from app.common.exceptions import SQLValidationError
+from app.common.exceptions import QueryLimitExceededError, SQLValidationError
 from app.config import settings
 from app.datasets.service import DatasetService
 from app.query.result_formatter import ResultFormatter
@@ -21,7 +22,7 @@ class QueryEvent:
 
     def to_json(self) -> str:
         d = {"type": self.type, "content": self.content}
-        if self.data:
+        if self.data is not None:
             d["data"] = self.data
         return json.dumps(d)
 
@@ -49,6 +50,9 @@ class QueryService:
         question: str,
         conversation_id: str,
     ):
+        # Check rate limit
+        await self._check_rate_limit(user_id)
+
         # Load dataset metadata
         dataset_meta = await self.dataset_service.get_dataset_schema(
             user_id, dataset_id
@@ -199,3 +203,34 @@ class QueryService:
                 }
             )
         )
+
+    async def _check_rate_limit(self, user_id: str):
+        """Check daily query count and increment counter."""
+        user_ref = self.db.collection("users").document(user_id)
+        user_doc = await user_ref.get()
+        if not user_doc.exists:
+            return
+
+        data = user_doc.to_dict()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        if data.get("query_date") == today:
+            if data.get("queries_today", 0) >= settings.MAX_QUERIES_PER_DAY:
+                raise QueryLimitExceededError()
+            await user_ref.update({"queries_today": data.get("queries_today", 0) + 1})
+        else:
+            await user_ref.update({"queries_today": 1, "query_date": today})
+
+    async def save_feedback(
+        self, user_id: str, conversation_id: str, turn_id: str, feedback: str
+    ):
+        """Save user feedback on a conversation turn."""
+        turn_ref = (
+            self.db.collection("users")
+            .document(user_id)
+            .collection("conversations")
+            .document(conversation_id)
+            .collection("turns")
+            .document(turn_id)
+        )
+        await turn_ref.update({"feedback": feedback})

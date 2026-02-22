@@ -3,6 +3,7 @@ import uuid
 import pandas as pd
 from google.cloud import firestore
 
+from app.common.async_utils import run_sync
 from app.common.exceptions import (
     ColumnLimitExceededError,
     ConnectorError,
@@ -57,14 +58,14 @@ class ConnectorService:
             if not all_chunks:
                 continue
 
-            full_df = pd.concat(all_chunks, ignore_index=True)
+            full_df = await run_sync(pd.concat, all_chunks, ignore_index=True)
 
             if len(full_df.columns) > settings.MAX_COLUMNS_PER_IMPORT:
                 raise ColumnLimitExceededError(
                     dataset_info.name, settings.MAX_COLUMNS_PER_IMPORT
                 )
 
-            schema = infer_bigquery_schema(full_df)
+            schema = await run_sync(infer_bigquery_schema, full_df)
             table_name = sanitize_column_name(dataset_info.name)
 
             table = await self.dataset_service.load_dataframe(

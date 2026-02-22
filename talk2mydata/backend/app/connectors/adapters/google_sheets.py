@@ -27,6 +27,11 @@ class GoogleSheetsConnector(DataConnector):
 
     async def _get_client(self) -> gspread.Client:
         if self._client is None:
+            if not settings.GOOGLE_SHEETS_CLIENT_ID or not settings.GOOGLE_SHEETS_CLIENT_SECRET:
+                raise ValueError(
+                    "Google Sheets OAuth credentials not configured on the server"
+                )
+
             def _init_client():
                 creds = Credentials(
                     token=self.config.credentials["access_token"],
