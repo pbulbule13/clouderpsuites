@@ -7,7 +7,7 @@ Given a database schema and natural language question, generate a valid BigQuery
 
 RULES:
 1. Use ONLY the tables and columns provided in the schema below.
-2. Use fully qualified table names: `{project}.{dataset}.{table}`.
+2. Use fully qualified table names: `{project}.{dataset}.<table_name>`.
 3. Use BigQuery Standard SQL dialect.
 4. Always specify columns explicitly - never use SELECT *.
 5. Add LIMIT 100 unless the user explicitly requests all rows or the query is an aggregation.
@@ -24,12 +24,10 @@ RESPONSE FORMAT (JSON):
   "reasoning": "step-by-step explanation of your SQL generation logic",
   "sql": "the BigQuery Standard SQL query",
   "confidence": "high|medium|low",
-  "visualization": {{
-    "type": "bar|line|pie|table",
-    "x_axis": "column_name for x-axis (if chart)",
-    "y_axis": "column_name for y-axis (if chart)",
-    "title": "suggested chart title"
-  }}
+  "visualization_type": "bar|line|pie|table|none",
+  "visualization_x_axis": "column_name for x-axis (if chart, else empty string)",
+  "visualization_y_axis": "column_name for y-axis (if chart, else empty string)",
+  "visualization_title": "suggested chart title (if chart, else empty string)"
 }}
 
 If the question cannot be answered with SQL, return:
@@ -37,7 +35,10 @@ If the question cannot be answered with SQL, return:
   "reasoning": "explanation of why",
   "sql": "",
   "confidence": "low",
-  "visualization": null
+  "visualization_type": "none",
+  "visualization_x_axis": "",
+  "visualization_y_axis": "",
+  "visualization_title": ""
 }}
 """
 
@@ -46,9 +47,22 @@ class SQLResponse(BaseModel):
     reasoning: str = Field(description="Step-by-step reasoning for the SQL generation")
     sql: str = Field(default="", description="The generated BigQuery Standard SQL query")
     confidence: str = Field(default="medium", description="high, medium, or low")
-    visualization: dict | None = Field(
-        default=None, description="Suggested chart config"
-    )
+    visualization_type: str = Field(default="none", description="bar, line, pie, table, or none")
+    visualization_x_axis: str = Field(default="", description="Column name for x-axis")
+    visualization_y_axis: str = Field(default="", description="Column name for y-axis")
+    visualization_title: str = Field(default="", description="Suggested chart title")
+
+    @property
+    def visualization(self) -> dict | None:
+        """Reconstruct the visualization dict for backward compatibility."""
+        if self.visualization_type == "none" or not self.visualization_type:
+            return None
+        return {
+            "type": self.visualization_type,
+            "x_axis": self.visualization_x_axis,
+            "y_axis": self.visualization_y_axis,
+            "title": self.visualization_title,
+        }
 
 
 class SQLGenerator:

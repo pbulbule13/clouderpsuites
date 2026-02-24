@@ -6,8 +6,14 @@ from google.cloud import bigquery
 DATE_PATTERNS = [
     (r"^\d{4}-\d{2}-\d{2}$", bigquery.enums.SqlTypeNames.DATE),
     (r"^\d{2}/\d{2}/\d{4}$", bigquery.enums.SqlTypeNames.DATE),
+    (r"^\d{1,2}/\d{1,2}/\d{2,4}$", bigquery.enums.SqlTypeNames.DATE),
     (r"^\d{4}-\d{2}-\d{2}T", bigquery.enums.SqlTypeNames.TIMESTAMP),
 ]
+
+# Patterns for values that look numeric but have formatting
+CURRENCY_RE = re.compile(r"^[\$\u20ac\u00a3\u00a5]?\s*-?[\d,]+\.?\d*$")
+PERCENT_RE = re.compile(r"^-?[\d,]+\.?\d*\s*%$")
+COMMA_NUMBER_RE = re.compile(r"^-?[\d,]+\.?\d*$")
 
 
 def sanitize_column_name(name: str) -> str:
@@ -16,6 +22,68 @@ def sanitize_column_name(name: str) -> str:
     if clean and clean[0].isdigit():
         clean = f"col_{clean}"
     return clean.lower() or "unnamed_column"
+
+
+def _strip_formatting(value: str) -> str | None:
+    """Strip currency symbols, commas, percent signs from a value for numeric parsing."""
+    s = value.strip()
+    if not s:
+        return None
+    # Remove currency symbols
+    s = re.sub(r"^[\$\u20ac\u00a3\u00a5]\s*", "", s)
+    # Remove percent sign
+    s = s.rstrip("%").strip()
+    # Remove thousands separators
+    s = s.replace(",", "")
+    return s
+
+
+def _detect_type_from_sample(series: pd.Series) -> str:
+    """Detect BigQuery type from a sample of string values."""
+    non_empty = series.dropna()
+    non_empty = non_empty[non_empty.astype(str).str.strip() != ""]
+
+    if len(non_empty) == 0:
+        return "STRING"
+
+    # Sample up to 20 values for type detection (more robust than just first)
+    sample_size = min(20, len(non_empty))
+    sample = non_empty.head(sample_size).astype(str)
+
+    # Check for date/timestamp patterns
+    first_val = str(sample.iloc[0]).strip()
+    for pattern, detected_type in DATE_PATTERNS:
+        if re.match(pattern, first_val):
+            # Verify at least 80% of sample matches
+            matches = sum(1 for v in sample if re.match(pattern, str(v).strip()))
+            if matches / sample_size >= 0.8:
+                return detected_type
+            break
+
+    # Check for boolean
+    unique_lower = set(non_empty.astype(str).str.lower().str.strip().unique())
+    if unique_lower <= {"true", "false", "yes", "no", "1", "0"}:
+        return "BOOL"
+
+    # Check for numeric (including formatted numbers like $1,234.56 or 45.5%)
+    numeric_count = 0
+    is_integer = True
+    for val in sample:
+        stripped = _strip_formatting(str(val))
+        if stripped is None:
+            continue
+        try:
+            num = float(stripped)
+            numeric_count += 1
+            if num != int(num):
+                is_integer = False
+        except (ValueError, OverflowError):
+            pass
+
+    if numeric_count / sample_size >= 0.8:
+        return "INT64" if is_integer else "FLOAT64"
+
+    return "STRING"
 
 
 def infer_bigquery_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:
@@ -38,24 +106,9 @@ def infer_bigquery_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:
             )
             continue
 
-        bq_type = None
         if series.dtype == "object":
-            sample = str(series.iloc[0])
-            for pattern, detected_type in DATE_PATTERNS:
-                if re.match(pattern, sample):
-                    bq_type = detected_type
-                    break
-
-            if bq_type is None:
-                try:
-                    numeric = pd.to_numeric(series, errors="raise")
-                    bq_type = "INT64" if (numeric % 1 == 0).all() else "FLOAT64"
-                except (ValueError, TypeError):
-                    unique_lower = set(series.str.lower().unique())
-                    if unique_lower <= {"true", "false", "yes", "no", "1", "0"}:
-                        bq_type = "BOOL"
-
-        if bq_type is None:
+            bq_type = _detect_type_from_sample(series)
+        else:
             type_map = {"int64": "INT64", "float64": "FLOAT64", "bool": "BOOL"}
             bq_type = type_map.get(str(series.dtype), "STRING")
 

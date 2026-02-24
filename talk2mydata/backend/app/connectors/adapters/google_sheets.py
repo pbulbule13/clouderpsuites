@@ -1,22 +1,59 @@
+import json
+import logging
 import re
+from pathlib import Path
 from typing import AsyncIterator
 
 import gspread
 import pandas as pd
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 
 from app.common.async_utils import run_sync
 from app.config import settings
 from app.connectors.ports import ConnectorConfig, DataConnector, DatasetInfo
 from app.connectors.registry import ConnectorRegistry
 
+logger = logging.getLogger(__name__)
+
+SERVICE_ACCOUNT_EMAIL: str | None = None
+
+
+def _load_service_account_email() -> str | None:
+    """Load the service account email from the key file (cached at module level)."""
+    global SERVICE_ACCOUNT_EMAIL
+    if SERVICE_ACCOUNT_EMAIL is not None:
+        return SERVICE_ACCOUNT_EMAIL
+    key_path = Path(settings.SERVICE_ACCOUNT_KEY_PATH)
+    if key_path.exists():
+        try:
+            data = json.loads(key_path.read_text())
+            SERVICE_ACCOUNT_EMAIL = data.get("client_email", "")
+            return SERVICE_ACCOUNT_EMAIL
+        except Exception:
+            pass
+    SERVICE_ACCOUNT_EMAIL = ""
+    return SERVICE_ACCOUNT_EMAIL
+
+
+def get_service_account_email() -> str:
+    """Public helper to get the SA email for error messages."""
+    email = _load_service_account_email()
+    return email or "the service account"
+
 
 @ConnectorRegistry.register("google_sheets")
 class GoogleSheetsConnector(DataConnector):
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
+    ]
+
     def __init__(self, config: ConnectorConfig):
         self.config = config
-        self.spreadsheet_id = self._extract_spreadsheet_id(config.settings["url"])
+        self.spreadsheet_id = self._extract_spreadsheet_id(config.settings.get("url", ""))
         self._client: gspread.Client | None = None
+        self._use_service_account = not config.credentials.get("access_token")
 
     @staticmethod
     def _extract_spreadsheet_id(url: str) -> str:
@@ -26,31 +63,63 @@ class GoogleSheetsConnector(DataConnector):
         return match.group(1)
 
     async def _get_client(self) -> gspread.Client:
-        if self._client is None:
-            if not settings.GOOGLE_SHEETS_CLIENT_ID or not settings.GOOGLE_SHEETS_CLIENT_SECRET:
-                raise ValueError(
-                    "Google Sheets OAuth credentials not configured on the server"
-                )
+        if self._client is not None:
+            return self._client
 
-            def _init_client():
-                creds = Credentials(
-                    token=self.config.credentials["access_token"],
-                    refresh_token=self.config.credentials.get("refresh_token"),
-                    token_uri="https://oauth2.googleapis.com/token",
-                    client_id=settings.GOOGLE_SHEETS_CLIENT_ID,
-                    client_secret=settings.GOOGLE_SHEETS_CLIENT_SECRET,
-                    scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
-                )
-                return gspread.authorize(creds)
-            self._client = await run_sync(_init_client)
+        if self._use_service_account:
+            self._client = await self._init_service_account_client()
+        else:
+            self._client = await self._init_oauth_client()
+
         return self._client
+
+    async def _init_service_account_client(self) -> gspread.Client:
+        """Initialize gspread using the server-side service account key."""
+        key_path = Path(settings.SERVICE_ACCOUNT_KEY_PATH)
+        if not key_path.exists():
+            raise ValueError(
+                "Service account key file not found. "
+                "Set SERVICE_ACCOUNT_KEY_PATH in your environment."
+            )
+
+        def _init():
+            creds = ServiceAccountCredentials.from_service_account_file(
+                str(key_path), scopes=self.SCOPES
+            )
+            return gspread.authorize(creds)
+
+        return await run_sync(_init)
+
+    async def _init_oauth_client(self) -> gspread.Client:
+        """Initialize gspread using user-provided OAuth credentials."""
+        if not settings.GOOGLE_SHEETS_CLIENT_ID or not settings.GOOGLE_SHEETS_CLIENT_SECRET:
+            raise ValueError(
+                "Google Sheets OAuth credentials not configured on the server"
+            )
+
+        def _init():
+            creds = Credentials(
+                token=self.config.credentials["access_token"],
+                refresh_token=self.config.credentials.get("refresh_token"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=settings.GOOGLE_SHEETS_CLIENT_ID,
+                client_secret=settings.GOOGLE_SHEETS_CLIENT_SECRET,
+                scopes=self.SCOPES,
+            )
+            return gspread.authorize(creds)
+
+        return await run_sync(_init)
 
     async def test_connection(self) -> bool:
         try:
             client = await self._get_client()
             await run_sync(client.open_by_key, self.spreadsheet_id)
             return True
-        except gspread.exceptions.APIError:
+        except gspread.exceptions.APIError as e:
+            logger.warning("Sheets API error for %s: %s", self.spreadsheet_id, e)
+            return False
+        except Exception as e:
+            logger.warning("Connection test failed for %s: %s", self.spreadsheet_id, e)
             return False
 
     async def discover_datasets(self) -> list[DatasetInfo]:
@@ -75,12 +144,51 @@ class GoogleSheetsConnector(DataConnector):
         spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
         worksheet = await run_sync(spreadsheet.worksheet, dataset_id)
         all_values = await run_sync(worksheet.get_all_values)
+
         if len(all_values) < 2:
             return
+
         headers = all_values[0]
+        num_cols = len(headers)
+
+        # Clean up: remove fully empty trailing columns
+        while num_cols > 0 and all(h.strip() == "" for h in [headers[num_cols - 1]]):
+            # Check if the entire column is empty
+            col_empty = all(
+                (len(row) <= num_cols - 1 or row[num_cols - 1].strip() == "")
+                for row in all_values[1:]
+            )
+            if col_empty:
+                num_cols -= 1
+            else:
+                break
+        headers = headers[:num_cols]
+
+        # Give unnamed headers a default name
+        headers = [
+            h.strip() if h.strip() else f"column_{i + 1}"
+            for i, h in enumerate(headers)
+        ]
+
+        # Process data rows
+        data_rows = []
+        for row in all_values[1:]:
+            # Skip fully empty rows
+            if all(cell.strip() == "" for cell in row):
+                continue
+            # Normalize row length to match headers
+            if len(row) < num_cols:
+                row = row + [""] * (num_cols - len(row))
+            elif len(row) > num_cols:
+                row = row[:num_cols]
+            data_rows.append(row)
+
+        if not data_rows:
+            return
+
         chunk_size = 10_000
-        for i in range(1, len(all_values), chunk_size):
-            chunk = all_values[i : i + chunk_size]
+        for i in range(0, len(data_rows), chunk_size):
+            chunk = data_rows[i : i + chunk_size]
             yield pd.DataFrame(chunk, columns=headers)
 
     async def get_schema(self, dataset_id: str) -> list[dict]:
@@ -88,4 +196,4 @@ class GoogleSheetsConnector(DataConnector):
         spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
         worksheet = await run_sync(spreadsheet.worksheet, dataset_id)
         headers = await run_sync(worksheet.row_values, 1)
-        return [{"name": h, "type": "STRING", "description": ""} for h in headers]
+        return [{"name": h, "type": "STRING", "description": ""} for h in headers if h.strip()]

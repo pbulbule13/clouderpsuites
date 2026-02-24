@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, AlertCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 
 interface ConnectDialogProps {
@@ -103,9 +103,17 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
                 onChange={(e) => setUrl(e.target.value)}
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Paste the URL of your Google Sheet. Make sure it&apos;s shared
+                with our service account or set to &quot;Anyone with the
+                link&quot;.
+              </p>
             </div>
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+              </div>
             )}
             <button
               onClick={handleDiscover}
@@ -142,7 +150,10 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
               ))}
             </div>
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+              </div>
             )}
             <button
               onClick={handleImport}

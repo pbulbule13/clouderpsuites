@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     GOOGLE_SHEETS_CLIENT_ID: str = ""
     GOOGLE_SHEETS_CLIENT_SECRET: str = ""
 
+    SERVICE_ACCOUNT_KEY_PATH: str = "service-account-key.json"
+
     @field_validator("GOOGLE_CLIENT_ID")
     @classmethod
     def google_client_id_must_be_set(cls, v: str) -> str:
@@ -18,6 +20,7 @@ class Settings(BaseSettings):
             raise ValueError("GOOGLE_CLIENT_ID must be set for audience validation")
         return v
 
+    ALLOWED_EMAILS: list[str] = []
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     ALLOWED_HOSTS: list[str] = ["*"]
     BQ_DATASET_PREFIX: str = "t2md_user_"

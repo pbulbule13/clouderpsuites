@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.connectors.ports import ConnectorConfig
@@ -10,6 +12,8 @@ from app.common.exceptions import (
     ColumnLimitExceededError,
 )
 from app.dependencies import get_connector_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -51,6 +55,20 @@ async def discover_datasets(
     )
     try:
         connector = ConnectorRegistry.get_connector(config)
+
+        if not await connector.test_connection():
+            from app.connectors.adapters.google_sheets import get_service_account_email
+
+            sa_email = get_service_account_email()
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Cannot access this spreadsheet. "
+                    f"Please share it with: {sa_email} "
+                    f"(set permission to 'Viewer'), then try again."
+                ),
+            )
+
         datasets = await connector.discover_datasets()
         return DiscoverResponse(
             datasets=[
@@ -64,5 +82,10 @@ async def discover_datasets(
                 for d in datasets
             ]
         )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid connector configuration")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Discover failed: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to access spreadsheet: {e}")
