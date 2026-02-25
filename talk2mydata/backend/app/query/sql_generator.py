@@ -1,6 +1,11 @@
+import logging
+import re
+
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """You are a BigQuery SQL expert powering a "Talk to Your Data" chatbot.
 Given a database schema and natural language question, generate a valid BigQuery Standard SQL query.
@@ -85,6 +90,15 @@ class SQLGenerator:
             f"Row count: {dataset_meta.get('row_count', 'unknown')}"
         )
 
+    @staticmethod
+    def _sanitize_question(question: str) -> str:
+        """Basic sanitization to mitigate prompt injection attempts."""
+        # Strip control characters
+        sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", question)
+        # Collapse excessive whitespace
+        sanitized = re.sub(r"\s+", " ", sanitized).strip()
+        return sanitized
+
     async def generate_sql(
         self,
         question: str,
@@ -93,6 +107,9 @@ class SQLGenerator:
         project: str,
         dataset: str,
     ) -> SQLResponse:
+        sanitized_question = self._sanitize_question(question)
+        logger.info("Generating SQL for question: %.200s", sanitized_question)
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             project=project, dataset=dataset, schema_context=schema_context
         )
@@ -102,7 +119,7 @@ class SQLGenerator:
             contents.append(
                 {"role": turn["role"], "parts": [{"text": turn["content"]}]}
             )
-        contents.append({"role": "user", "parts": [{"text": question}]})
+        contents.append({"role": "user", "parts": [{"text": sanitized_question}]})
 
         response = await self.client.aio.models.generate_content(
             model="gemini-2.5-flash",
@@ -115,4 +132,7 @@ class SQLGenerator:
             ),
         )
 
-        return SQLResponse.model_validate_json(response.text)
+        result = SQLResponse.model_validate_json(response.text)
+        if result.sql:
+            logger.info("Generated SQL (confidence=%s): %.500s", result.confidence, result.sql)
+        return result

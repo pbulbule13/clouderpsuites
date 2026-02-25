@@ -20,6 +20,8 @@ out/
 .env
 .env.local
 .env.*.local
+.env.production
+env.yaml
 
 # IDE
 .vscode/
@@ -37,5 +39,6 @@ docker-compose.override.yml
 # Credentials
 credentials.json
 service-account.json
+service-account-key.json
 *.pem
 *.key

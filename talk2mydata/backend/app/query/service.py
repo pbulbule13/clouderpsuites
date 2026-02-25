@@ -106,11 +106,11 @@ class QueryService:
                     type="thinking",
                     content=f"Fixing query (attempt {attempt + 2})...",
                 )
-                retry_history.append({"role": "model", "content": sql_response.sql})
+                # Do NOT feed failed SQL back -- prevents prompt injection feedback loop
                 retry_history.append(
                     {
                         "role": "user",
-                        "content": "The previous SQL query had validation errors. Please generate a corrected version.",
+                        "content": "The previous query was invalid. Please try a different approach to answer the original question.",
                     }
                 )
         else:
@@ -205,21 +205,26 @@ class QueryService:
         )
 
     async def _check_rate_limit(self, user_id: str):
-        """Check daily query count and increment counter."""
+        """Atomically check daily query count and increment counter."""
         user_ref = self.db.collection("users").document(user_id)
-        user_doc = await user_ref.get()
-        if not user_doc.exists:
-            return
-
-        data = user_doc.to_dict()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        if data.get("query_date") == today:
-            if data.get("queries_today", 0) >= settings.MAX_QUERIES_PER_DAY:
-                raise QueryLimitExceededError()
-            await user_ref.update({"queries_today": data.get("queries_today", 0) + 1})
-        else:
-            await user_ref.update({"queries_today": 1, "query_date": today})
+        transaction = self.db.transaction()
+
+        @firestore.async_transactional
+        async def _check_and_increment(txn, ref):
+            doc = await ref.get(transaction=txn)
+            if not doc.exists:
+                return
+            data = doc.to_dict()
+            if data.get("query_date") == today:
+                if data.get("queries_today", 0) >= settings.MAX_QUERIES_PER_DAY:
+                    raise QueryLimitExceededError()
+                txn.update(ref, {"queries_today": data.get("queries_today", 0) + 1})
+            else:
+                txn.update(ref, {"queries_today": 1, "query_date": today})
+
+        await _check_and_increment(transaction, user_ref)
 
     async def save_feedback(
         self, user_id: str, conversation_id: str, turn_id: str, feedback: str

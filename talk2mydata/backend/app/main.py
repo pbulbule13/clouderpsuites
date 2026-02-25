@@ -1,3 +1,5 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,15 +12,25 @@ from app.middleware.auth import AuthMiddleware
 from app.middleware.error_handler import GlobalErrorMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("talk2mydata")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting Talk2MyData API")
     app.state.bq_client = bigquery.Client(project=settings.GCP_PROJECT)
     app.state.firestore_client = firestore.AsyncClient(project=settings.GCP_PROJECT)
     app.state.genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    logger.info("All clients initialized successfully")
     yield
     app.state.bq_client.close()
     await app.state.firestore_client.close()
+    logger.info("Shutdown complete")
 
 
 def create_app() -> FastAPI:

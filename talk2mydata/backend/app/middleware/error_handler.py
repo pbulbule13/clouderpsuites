@@ -1,20 +1,28 @@
 import logging
 import traceback
 
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
 
-class GlobalErrorMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+class GlobalErrorMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         try:
-            response = await call_next(request)
-            return response
+            await self.app(scope, receive, send)
         except Exception as exc:
-            request_id = getattr(request.state, "request_id", "unknown")
+            request = Request(scope)
+            state = scope.get("state", {})
+            request_id = state.get("request_id", "unknown")
             logger.error(
                 "Unhandled exception",
                 extra={
@@ -25,7 +33,7 @@ class GlobalErrorMiddleware(BaseHTTPMiddleware):
                     "traceback": traceback.format_exc(),
                 },
             )
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=500,
                 content={
                     "error": "internal_error",
@@ -33,3 +41,4 @@ class GlobalErrorMiddleware(BaseHTTPMiddleware):
                     "request_id": request_id,
                 },
             )
+            await response(scope, receive, send)
