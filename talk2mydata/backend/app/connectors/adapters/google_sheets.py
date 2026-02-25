@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import AsyncIterator
 
+import google.auth
 import gspread
 import pandas as pd
 from google.oauth2.credentials import Credentials
@@ -20,10 +21,12 @@ SERVICE_ACCOUNT_EMAIL: str | None = None
 
 
 def _load_service_account_email() -> str | None:
-    """Load the service account email from the key file (cached at module level)."""
+    """Load the service account email from the key file or ADC (cached)."""
     global SERVICE_ACCOUNT_EMAIL
     if SERVICE_ACCOUNT_EMAIL is not None:
         return SERVICE_ACCOUNT_EMAIL
+
+    # Try key file first
     key_path = Path(settings.SERVICE_ACCOUNT_KEY_PATH)
     if key_path.exists():
         try:
@@ -32,6 +35,15 @@ def _load_service_account_email() -> str | None:
             return SERVICE_ACCOUNT_EMAIL
         except Exception:
             pass
+
+    # Fall back to ADC (Cloud Run service account)
+    try:
+        creds, _ = google.auth.default()
+        SERVICE_ACCOUNT_EMAIL = getattr(creds, "service_account_email", "") or ""
+        return SERVICE_ACCOUNT_EMAIL
+    except Exception:
+        pass
+
     SERVICE_ACCOUNT_EMAIL = ""
     return SERVICE_ACCOUNT_EMAIL
 
@@ -74,18 +86,18 @@ class GoogleSheetsConnector(DataConnector):
         return self._client
 
     async def _init_service_account_client(self) -> gspread.Client:
-        """Initialize gspread using the server-side service account key."""
+        """Initialize gspread using key file or Application Default Credentials."""
         key_path = Path(settings.SERVICE_ACCOUNT_KEY_PATH)
-        if not key_path.exists():
-            raise ValueError(
-                "Service account key file not found. "
-                "Set SERVICE_ACCOUNT_KEY_PATH in your environment."
-            )
 
         def _init():
-            creds = ServiceAccountCredentials.from_service_account_file(
-                str(key_path), scopes=self.SCOPES
-            )
+            if key_path.exists():
+                # Local dev: use explicit key file
+                creds = ServiceAccountCredentials.from_service_account_file(
+                    str(key_path), scopes=self.SCOPES
+                )
+            else:
+                # Cloud Run: use Application Default Credentials
+                creds, _ = google.auth.default(scopes=self.SCOPES)
             return gspread.authorize(creds)
 
         return await run_sync(_init)
