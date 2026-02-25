@@ -7,10 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.cloud import bigquery, firestore
 
+from fastapi.responses import JSONResponse
+
+from app.common.exceptions import Talk2MyDataError
 from app.config import settings
 from app.middleware.auth import AuthMiddleware
 from app.middleware.error_handler import GlobalErrorMiddleware
 from app.middleware.request_id import RequestIdMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -37,10 +41,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Talk2MyData API", version="1.0.0", lifespan=lifespan)
 
     # Middleware stack (last added = outermost):
-    # CORS -> GlobalError -> RequestId -> Auth -> App
+    # CORS -> SecurityHeaders -> GlobalError -> RequestId -> Auth -> App
     app.add_middleware(AuthMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(GlobalErrorMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -60,6 +65,25 @@ def create_app() -> FastAPI:
     )
     app.include_router(query_router, prefix="/api/v1/query", tags=["query"])
     app.include_router(datasets_router, prefix="/api/v1/datasets", tags=["datasets"])
+
+    # Centralized exception handlers for consistent error responses
+    ERROR_STATUS_CODES = {
+        "connector_error": 400,
+        "dataset_not_found": 404,
+        "dataset_limit_exceeded": 422,
+        "row_limit_exceeded": 422,
+        "column_limit_exceeded": 422,
+        "query_limit_exceeded": 429,
+        "sql_validation_error": 400,
+    }
+
+    @app.exception_handler(Talk2MyDataError)
+    async def talk2mydata_error_handler(request, exc: Talk2MyDataError):
+        status = ERROR_STATUS_CODES.get(exc.code, 400)
+        return JSONResponse(
+            status_code=status,
+            content={"error": exc.code, "message": exc.message},
+        )
 
     @app.get("/health")
     async def health():

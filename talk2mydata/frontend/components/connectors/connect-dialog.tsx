@@ -4,6 +4,14 @@ import { useState } from "react";
 import { Loader2, X, AlertCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 
+interface DiscoveredSheet {
+  id: string;
+  name: string;
+  description: string;
+  row_count: number;
+  columns: string[];
+}
+
 interface ConnectDialogProps {
   open: boolean;
   onClose: () => void;
@@ -13,7 +21,7 @@ interface ConnectDialogProps {
 export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) {
   const [url, setUrl] = useState("");
   const [step, setStep] = useState<"url" | "select" | "loading">("url");
-  const [sheets, setSheets] = useState<any[]>([]);
+  const [sheets, setSheets] = useState<DiscoveredSheet[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
   const [error, setError] = useState("");
 
@@ -34,7 +42,7 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
     setStep("loading");
     setError("");
     try {
-      const result = await apiClient.post<{ datasets: any[] }>(
+      const result = await apiClient.post<{ datasets: DiscoveredSheet[] }>(
         "/api/v1/connectors/discover",
         {
           name: "Google Sheet",
@@ -43,10 +51,10 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
         }
       );
       setSheets(result.datasets);
-      setSelectedSheets(result.datasets.map((s: any) => s.id));
+      setSelectedSheets(result.datasets.map((s) => s.id));
       setStep("select");
-    } catch (err: any) {
-      setError(err.message || "Failed to access the spreadsheet");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to access the spreadsheet");
       setStep("url");
     }
   };
@@ -62,8 +70,8 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
       });
       onSuccess();
       handleClose();
-    } catch (err: any) {
-      setError(err.message || "Import failed");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Import failed");
       setStep("select");
     }
   };

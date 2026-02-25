@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import re
@@ -17,41 +18,32 @@ from app.connectors.registry import ConnectorRegistry
 
 logger = logging.getLogger(__name__)
 
-SERVICE_ACCOUNT_EMAIL: str | None = None
 
-
-def _load_service_account_email() -> str | None:
-    """Load the service account email from the key file or ADC (cached)."""
-    global SERVICE_ACCOUNT_EMAIL
-    if SERVICE_ACCOUNT_EMAIL is not None:
-        return SERVICE_ACCOUNT_EMAIL
-
+@functools.lru_cache(maxsize=1)
+def _load_service_account_email() -> str:
+    """Load the service account email from the key file or ADC (cached via lru_cache)."""
     # Try key file first
     key_path = Path(settings.SERVICE_ACCOUNT_KEY_PATH)
     if key_path.exists():
         try:
             data = json.loads(key_path.read_text())
-            SERVICE_ACCOUNT_EMAIL = data.get("client_email", "")
-            return SERVICE_ACCOUNT_EMAIL
+            return data.get("client_email", "")
         except Exception:
             pass
 
     # Fall back to ADC (Cloud Run service account)
     try:
         creds, _ = google.auth.default()
-        SERVICE_ACCOUNT_EMAIL = getattr(creds, "service_account_email", "") or ""
-        return SERVICE_ACCOUNT_EMAIL
+        return getattr(creds, "service_account_email", "") or ""
     except Exception:
         pass
 
-    SERVICE_ACCOUNT_EMAIL = ""
-    return SERVICE_ACCOUNT_EMAIL
+    return ""
 
 
 def get_service_account_email() -> str:
     """Public helper to get the SA email for error messages."""
-    email = _load_service_account_email()
-    return email or "the service account"
+    return _load_service_account_email() or "the service account"
 
 
 @ConnectorRegistry.register("google_sheets")
@@ -65,13 +57,19 @@ class GoogleSheetsConnector(DataConnector):
         self.config = config
         self.spreadsheet_id = self._extract_spreadsheet_id(config.settings.get("url", ""))
         self._client: gspread.Client | None = None
+        self._spreadsheet: gspread.Spreadsheet | None = None
         self._use_service_account = not config.credentials.get("access_token")
 
     @staticmethod
     def _extract_spreadsheet_id(url: str) -> str:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.hostname != "docs.google.com":
+            raise ValueError("Only Google Sheets URLs (docs.google.com) are accepted")
         match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
         if not match:
-            raise ValueError(f"Invalid Google Sheets URL: {url}")
+            raise ValueError("Invalid Google Sheets URL format")
         return match.group(1)
 
     async def _get_client(self) -> gspread.Client:
@@ -122,10 +120,16 @@ class GoogleSheetsConnector(DataConnector):
 
         return await run_sync(_init)
 
+    async def _get_spreadsheet(self) -> gspread.Spreadsheet:
+        if self._spreadsheet is not None:
+            return self._spreadsheet
+        client = await self._get_client()
+        self._spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        return self._spreadsheet
+
     async def test_connection(self) -> bool:
         try:
-            client = await self._get_client()
-            await run_sync(client.open_by_key, self.spreadsheet_id)
+            await self._get_spreadsheet()
             return True
         except gspread.exceptions.APIError as e:
             logger.warning("Sheets API error for %s: %s", self.spreadsheet_id, e)
@@ -135,8 +139,7 @@ class GoogleSheetsConnector(DataConnector):
             return False
 
     async def discover_datasets(self) -> list[DatasetInfo]:
-        client = await self._get_client()
-        spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        spreadsheet = await self._get_spreadsheet()
         worksheets = await run_sync(spreadsheet.worksheets)
         datasets = []
         for worksheet in worksheets:
@@ -152,8 +155,7 @@ class GoogleSheetsConnector(DataConnector):
         return datasets
 
     async def extract_data(self, dataset_id: str) -> AsyncIterator[pd.DataFrame]:
-        client = await self._get_client()
-        spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        spreadsheet = await self._get_spreadsheet()
         worksheet = await run_sync(spreadsheet.worksheet, dataset_id)
         all_values = await run_sync(worksheet.get_all_values)
 
@@ -204,8 +206,7 @@ class GoogleSheetsConnector(DataConnector):
             yield pd.DataFrame(chunk, columns=headers)
 
     async def get_schema(self, dataset_id: str) -> list[dict]:
-        client = await self._get_client()
-        spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        spreadsheet = await self._get_spreadsheet()
         worksheet = await run_sync(spreadsheet.worksheet, dataset_id)
         headers = await run_sync(worksheet.row_values, 1)
         return [{"name": h, "type": "STRING", "description": ""} for h in headers if h.strip()]

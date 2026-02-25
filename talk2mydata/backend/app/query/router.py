@@ -30,6 +30,9 @@ async def ask_question(
                 async for event in service.process_question(
                     user_id, body.dataset_id, body.question, body.conversation_id
                 ):
+                    if await request.is_disconnected():
+                        logger.info("Client disconnected, stopping SSE stream")
+                        return
                     yield f"data: {event.to_json()}\n\n"
                 yield "data: [DONE]\n\n"
         except QueryLimitExceededError:

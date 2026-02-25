@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { setToken, setUser } from "@/lib/auth";
 import { apiClient } from "@/lib/api-client";
 import { jwtDecode } from "@/lib/jwt";
@@ -9,7 +9,7 @@ import { jwtDecode } from "@/lib/jwt";
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleSuccess = async (credentialResponse: any) => {
+  const handleSuccess = async (credentialResponse: CredentialResponse) => {
     const token = credentialResponse.credential;
     if (!token) return;
 

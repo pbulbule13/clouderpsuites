@@ -88,4 +88,4 @@ async def discover_datasets(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Discover failed: %s", e)
-        raise HTTPException(status_code=400, detail=f"Failed to access spreadsheet: {e}")
+        raise HTTPException(status_code=400, detail="Failed to access spreadsheet. Please check the URL and try again.")

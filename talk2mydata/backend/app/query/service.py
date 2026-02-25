@@ -120,10 +120,12 @@ class QueryService:
             )
             return
 
-        # Execute query
+        # Execute query with safety limit to prevent unbounded result materialization
+        MAX_RESULT_ROWS = 10_000
+        safe_sql = f"SELECT * FROM ({sql_response.sql}) _t LIMIT {MAX_RESULT_ROWS}"
         yield QueryEvent(type="thinking", content="Running query...")
         try:
-            rows = await run_sync(self.bq.query_and_wait, sql_response.sql)
+            rows = await run_sync(self.bq.query_and_wait, safe_sql)
             df = await run_sync(rows.to_dataframe)
         except Exception:
             yield QueryEvent(type="error", content="Query execution failed. Please try rephrasing your question.")
@@ -163,19 +165,23 @@ class QueryService:
     async def _get_conversation_history(
         self, user_id: str, conv_id: str
     ) -> list[dict]:
+        # Fetch most recent turns (descending) then reverse to chronological order
         docs = (
             self.db.collection("users")
             .document(user_id)
             .collection("conversations")
             .document(conv_id)
             .collection("turns")
-            .order_by("created_at")
+            .order_by("created_at", direction=firestore.Query.DESCENDING)
             .limit(settings.CONVERSATION_CONTEXT_TURNS)
             .stream()
         )
-        history = []
+        turns = []
         async for doc in docs:
-            turn = doc.to_dict()
+            turns.append(doc.to_dict())
+        turns.reverse()
+        history = []
+        for turn in turns:
             history.append({"role": "user", "content": turn["question"]})
             history.append({"role": "model", "content": turn["answer"]})
         return history

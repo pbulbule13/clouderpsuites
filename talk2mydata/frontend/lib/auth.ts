@@ -1,3 +1,5 @@
+import { jwtDecode } from "./jwt";
+
 const TOKEN_KEY = "t2md_token";
 const USER_KEY = "t2md_user";
 
@@ -20,7 +22,12 @@ export function setToken(token: string): void {
 export function getUser(): User | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(USER_KEY);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export function setUser(user: User): void {
@@ -33,5 +40,13 @@ export function clearAuth(): void {
 }
 
 export function isAuthenticated(): boolean {
-  return !!getToken();
+  const token = getToken();
+  if (!token) return false;
+  try {
+    const decoded = jwtDecode(token);
+    if (decoded.exp && decoded.exp * 1000 < Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }

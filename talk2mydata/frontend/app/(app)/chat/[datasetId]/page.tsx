@@ -54,7 +54,10 @@ export default function ChatPage() {
           }),
         });
 
-        const reader = response.body!.getReader();
+        if (!response.body) {
+          throw new Error("No response body");
+        }
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -68,7 +71,12 @@ export default function ChatPage() {
 
           for (const line of lines) {
             if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
-            const event = JSON.parse(line.slice(6));
+            let event;
+            try {
+              event = JSON.parse(line.slice(6));
+            } catch {
+              continue;
+            }
 
             setMessages((prev) => {
               const updated = [...prev];
