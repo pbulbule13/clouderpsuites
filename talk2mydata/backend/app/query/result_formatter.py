@@ -2,6 +2,7 @@ import pandas as pd
 from google import genai
 from google.genai import types
 
+from app.config import settings
 from app.query.sql_generator import SQLResponse
 
 ANSWER_PROMPT = """You are a helpful data analyst. Given a user's question, the SQL query
@@ -43,7 +44,7 @@ class ResultFormatter:
         )
 
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model=settings.GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.3),
         )

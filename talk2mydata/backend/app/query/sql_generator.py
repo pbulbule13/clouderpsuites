@@ -5,6 +5,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """You are a BigQuery SQL expert powering a "Talk to Your Data" chatbot.
@@ -122,7 +124,7 @@ class SQLGenerator:
         contents.append({"role": "user", "parts": [{"text": sanitized_question}]})
 
         response = await self.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model=settings.GEMINI_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,

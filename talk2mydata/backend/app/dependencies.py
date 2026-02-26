@@ -6,6 +6,8 @@ from google.cloud.firestore import AsyncClient
 from app.auth.service import AuthService
 from app.connectors.service import ConnectorService
 from app.datasets.service import DatasetService
+from app.query.conversation_service import ConversationService
+from app.query.rate_limit_service import RateLimitService
 from app.query.service import QueryService
 from app.query.sql_generator import SQLGenerator
 from app.query.sql_validator import SQLValidator
@@ -46,4 +48,6 @@ def get_query_service(request: Request) -> QueryService:
     dataset_service = get_dataset_service(request)
     sql_gen = SQLGenerator(genai_client)
     validator = SQLValidator(bq)
-    return QueryService(sql_gen, validator, bq, db, dataset_service)
+    conversations = ConversationService(db)
+    rate_limiter = RateLimitService(db)
+    return QueryService(sql_gen, validator, bq, dataset_service, conversations, rate_limiter)

@@ -1,9 +1,9 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ConnectRequest(BaseModel):
-    name: str
-    connector_type: str
+    name: str = Field(max_length=200)
+    connector_type: str = Field(max_length=50)
     credentials: dict = {}
     settings: dict = {}
 

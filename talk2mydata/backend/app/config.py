@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     MAX_DATASETS_PER_USER: int = 5
     MAX_QUERY_BYTES_SCANNED: int = 1_073_741_824  # 1 GB
     MAX_QUERIES_PER_DAY: int = 100
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     CONVERSATION_CONTEXT_TURNS: int = 10
     CONVERSATION_RETENTION_DAYS: int = 90
 

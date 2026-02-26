@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, X, AlertCircle } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 interface DiscoveredSheet {
   id: string;
@@ -117,19 +119,10 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
                 link&quot;.
               </p>
             </div>
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
-              </div>
-            )}
-            <button
-              onClick={handleDiscover}
-              disabled={!url}
-              className="w-full rounded-lg bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
+            {error && <ErrorAlert message={error} />}
+            <Button onClick={handleDiscover} disabled={!url} fullWidth>
               Connect
-            </button>
+            </Button>
           </div>
         )}
 
@@ -157,19 +150,14 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
                 </label>
               ))}
             </div>
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
-              </div>
-            )}
-            <button
+            {error && <ErrorAlert message={error} />}
+            <Button
               onClick={handleImport}
               disabled={selectedSheets.length === 0}
-              className="w-full rounded-lg bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              fullWidth
             >
               Import Selected Sheets
-            </button>
+            </Button>
           </div>
         )}
 

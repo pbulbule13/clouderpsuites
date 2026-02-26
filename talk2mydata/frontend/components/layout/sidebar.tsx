@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { MessageSquare, Plus, Table2 } from "lucide-react";
+import { Plus, Table2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import type { Dataset } from "@/lib/types";
 
 export function Sidebar() {
@@ -21,13 +22,10 @@ export function Sidebar() {
   return (
     <aside className="w-64 border-r bg-card h-full flex flex-col">
       <div className="p-4 border-b">
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="w-full flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
+        <Button onClick={() => router.push("/dashboard")} fullWidth>
           <Plus className="h-4 w-4" />
           Connect Data
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">

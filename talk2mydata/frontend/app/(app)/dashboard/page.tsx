@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import type { Dataset } from "@/lib/types";
 import { DatasetCard } from "@/components/connectors/dataset-card";
 import { ConnectDialog } from "@/components/connectors/connect-dialog";
@@ -35,13 +36,10 @@ export default function DashboardPage() {
             Connect data sources and start asking questions.
           </p>
         </div>
-        <button
-          onClick={() => setDialogOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           Connect Data Source
-        </button>
+        </Button>
       </div>
 
       {datasets.length === 0 ? (
@@ -51,13 +49,10 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-4">
             Connect a Google Sheet to start asking questions about your data.
           </p>
-          <button
-            onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
+          <Button onClick={() => setDialogOpen(true)} className="px-6">
             <Plus className="h-4 w-4" />
             Connect Your First Dataset
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

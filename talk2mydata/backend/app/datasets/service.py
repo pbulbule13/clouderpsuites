@@ -5,6 +5,7 @@ from google.cloud import bigquery
 from google.cloud.firestore import AsyncClient
 
 from app.common.async_utils import run_sync
+from app.common.firestore_paths import dataset_ref, datasets_col
 from app.config import settings
 from app.datasets.schema_inference import sanitize_column_name
 
@@ -53,31 +54,15 @@ class DatasetService:
         return await run_sync(self.bq.get_table, table_ref)
 
     async def register_dataset(self, user_id: str, dataset_meta: dict):
-        doc_ref = (
-            self.db.collection("users")
-            .document(user_id)
-            .collection("datasets")
-            .document(dataset_meta["id"])
-        )
+        doc_ref = dataset_ref(self.db, user_id, dataset_meta["id"])
         await doc_ref.set(dataset_meta)
 
     async def get_user_datasets(self, user_id: str) -> list[dict]:
-        docs = (
-            self.db.collection("users")
-            .document(user_id)
-            .collection("datasets")
-            .stream()
-        )
+        docs = datasets_col(self.db, user_id).stream()
         return [doc.to_dict() async for doc in docs]
 
     async def get_dataset_schema(self, user_id: str, dataset_id: str) -> dict | None:
-        doc = await (
-            self.db.collection("users")
-            .document(user_id)
-            .collection("datasets")
-            .document(dataset_id)
-            .get()
-        )
+        doc = await dataset_ref(self.db, user_id, dataset_id).get()
         return doc.to_dict() if doc.exists else None
 
     async def delete_dataset(self, user_id: str, dataset_id: str):
@@ -91,13 +76,7 @@ class DatasetService:
         await run_sync(self.bq.delete_table, table_ref, not_found_ok=True)
 
         # Delete Firestore metadata
-        await (
-            self.db.collection("users")
-            .document(user_id)
-            .collection("datasets")
-            .document(dataset_id)
-            .delete()
-        )
+        await dataset_ref(self.db, user_id, dataset_id).delete()
 
     async def refresh_dataset(self, user_id: str, dataset_id: str) -> dict | None:
         dataset_meta = await self.get_dataset_schema(user_id, dataset_id)

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, RefreshCw, Trash2, Table2 } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 
 interface DatasetCardProps {
   dataset: Dataset;
@@ -51,27 +52,30 @@ export function DatasetCard({ dataset, onRefresh, onDelete }: DatasetCardProps) 
       </div>
 
       <div className="flex items-center gap-2 mt-4">
-        <button
+        <Button
           onClick={() => router.push(`/chat/${dataset.id}`)}
-          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+          className="flex-1"
+          size="md"
         >
           <MessageSquare className="h-4 w-4" />
           Chat
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleRefresh}
-          className="p-2 rounded-lg border hover:bg-muted transition-colors"
+          variant="outline"
+          size="icon"
           aria-label="Refresh data"
         >
           <RefreshCw className="h-4 w-4" />
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleDelete}
-          className="p-2 rounded-lg border hover:bg-destructive/10 text-destructive transition-colors"
+          variant="destructive"
+          size="icon"
           aria-label="Delete dataset"
         >
           <Trash2 className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );
