@@ -109,8 +109,12 @@ def infer_bigquery_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:
         if series.dtype == "object":
             bq_type = _detect_type_from_sample(series)
         else:
-            type_map = {"int64": "INT64", "float64": "FLOAT64", "bool": "BOOL"}
-            bq_type = type_map.get(str(series.dtype), "STRING")
+            dtype_str = str(series.dtype)
+            if dtype_str.startswith("datetime64"):
+                bq_type = "TIMESTAMP"
+            else:
+                type_map = {"int64": "INT64", "float64": "FLOAT64", "bool": "BOOL"}
+                bq_type = type_map.get(dtype_str, "STRING")
 
         schema.append(
             bigquery.SchemaField(

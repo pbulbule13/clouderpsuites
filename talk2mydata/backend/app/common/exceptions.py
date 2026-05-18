@@ -71,6 +71,30 @@ class SpreadsheetQuotaError(Talk2MyDataError):
         )
 
 
+class UnsupportedFileTypeError(Talk2MyDataError):
+    def __init__(self, filename: str):
+        super().__init__(
+            message=(
+                f"Unsupported file type: '{filename}'. "
+                f"Supported formats: CSV, Excel (.xlsx), JSON/NDJSON, Parquet."
+            ),
+            code="unsupported_file_type",
+        )
+
+
+class FileParseError(Talk2MyDataError):
+    def __init__(self, detail: str):
+        super().__init__(
+            message=f"Could not parse the uploaded file: {detail}",
+            code="file_parse_error",
+        )
+
+
+class FileFormatError(Talk2MyDataError):
+    def __init__(self, detail: str):
+        super().__init__(message=detail, code="file_format_error")
+
+
 class QueryLimitExceededError(Talk2MyDataError):
     def __init__(self):
         super().__init__(

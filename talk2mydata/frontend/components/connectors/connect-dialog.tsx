@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, X } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { useRef, useState } from "react";
+import { Loader2, Upload, X, FileText } from "lucide-react";
+import { apiClient, API_URL } from "@/lib/api-client";
+import { getToken } from "@/lib/auth";
+import {
+  ACCEPT_ATTR,
+  MAX_UPLOAD_BYTES,
+  formatBytes,
+  isAllowedFile,
+} from "@/lib/file-types";
 import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/ui/error-alert";
 
@@ -20,16 +27,26 @@ interface ConnectDialogProps {
   onSuccess: () => void;
 }
 
+type Mode = "url" | "file";
+type Step = "input" | "select" | "loading";
+
 export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) {
+  const [mode, setMode] = useState<Mode>("url");
+  const [step, setStep] = useState<Step>("input");
   const [url, setUrl] = useState("");
-  const [step, setStep] = useState<"url" | "select" | "loading">("url");
+  const [file, setFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [sheets, setSheets] = useState<DiscoveredSheet[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
+    setMode("url");
+    setStep("input");
     setUrl("");
-    setStep("url");
+    setFile(null);
+    setDragActive(false);
     setSheets([]);
     setSelectedSheets([]);
     setError("");
@@ -39,6 +56,14 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
     reset();
     onClose();
   };
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setStep("input");
+    setError("");
+  };
+
+  // --- URL flow (Google Sheets) ---
 
   const handleDiscover = async () => {
     setStep("loading");
@@ -56,8 +81,10 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
       setSelectedSheets(result.datasets.map((s) => s.id));
       setStep("select");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to access the spreadsheet");
-      setStep("url");
+      setError(
+        err instanceof Error ? err.message : "Failed to access the spreadsheet"
+      );
+      setStep("input");
     }
   };
 
@@ -84,6 +111,66 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
     );
   };
 
+  // --- File flow (CSV / Excel / JSON / Parquet) ---
+
+  const pickFile = (selected: File | null) => {
+    setError("");
+    if (!selected) return;
+    if (!isAllowedFile(selected.name)) {
+      setError(
+        `Unsupported file type. Accepted: ${ACCEPT_ATTR.replace(/\./g, " .")}`
+      );
+      return;
+    }
+    if (selected.size > MAX_UPLOAD_BYTES) {
+      setError(
+        `File is too large (${formatBytes(selected.size)}). Maximum is 10 MB.`
+      );
+      return;
+    }
+    setFile(selected);
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setStep("loading");
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("name", file.name);
+      fd.append("file", file);
+
+      const res = await fetch(`${API_URL}/api/v1/connectors/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: fd,
+      });
+
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.message || body.detail || body.error || "Upload failed"
+        );
+      }
+
+      onSuccess();
+      handleClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+      setStep("input");
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    pickFile(e.dataTransfer.files?.[0] ?? null);
+  };
+
   if (!open) return null;
 
   return (
@@ -95,12 +182,40 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
           <button
             onClick={handleClose}
             className="p-1 rounded hover:bg-muted"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {step === "url" && (
+        {/* Mode toggle */}
+        {step !== "select" && (
+          <div className="flex rounded-lg border p-1 mb-4 text-sm">
+            <button
+              onClick={() => switchMode("url")}
+              className={`flex-1 rounded-md py-1.5 transition-colors ${
+                mode === "url"
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              }`}
+            >
+              Google Sheets URL
+            </button>
+            <button
+              onClick={() => switchMode("file")}
+              className={`flex-1 rounded-md py-1.5 transition-colors ${
+                mode === "file"
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              }`}
+            >
+              Upload File
+            </button>
+          </div>
+        )}
+
+        {/* URL input step */}
+        {mode === "url" && step === "input" && (
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-1 block">
@@ -126,6 +241,56 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
           </div>
         )}
 
+        {/* File upload step */}
+        {mode === "file" && step === "input" && (
+          <div className="space-y-4">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-10 cursor-pointer transition-colors ${
+                dragActive ? "border-primary bg-primary/5" : "hover:bg-muted"
+              }`}
+            >
+              {file ? (
+                <>
+                  <FileText className="h-8 w-8 text-primary" />
+                  <span className="text-sm font-medium">{file.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatBytes(file.size)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm">
+                    Drag a file here, or click to browse
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    CSV, Excel, JSON, or Parquet &middot; max 10 MB
+                  </span>
+                </>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPT_ATTR}
+              className="hidden"
+              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+            />
+            {error && <ErrorAlert message={error} />}
+            <Button onClick={handleUpload} disabled={!file} fullWidth>
+              Import File
+            </Button>
+          </div>
+        )}
+
+        {/* Sheet selection step (URL flow only) */}
         {step === "select" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -161,12 +326,11 @@ export function ConnectDialog({ open, onClose, onSuccess }: ConnectDialogProps) 
           </div>
         )}
 
+        {/* Loading step */}
         {step === "loading" && (
           <div className="flex flex-col items-center gap-4 py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Importing data...
-            </p>
+            <p className="text-sm text-muted-foreground">Importing data...</p>
           </div>
         )}
       </div>

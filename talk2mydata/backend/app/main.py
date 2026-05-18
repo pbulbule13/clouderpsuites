@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger("talk2mydata")
 
 
-EXPECTED_CONNECTORS = {"google_sheets"}
+EXPECTED_CONNECTORS = {"google_sheets", "csv", "excel", "json", "parquet"}
 
 
 @asynccontextmanager
@@ -92,6 +92,9 @@ def create_app() -> FastAPI:
         "spreadsheet_not_found": 404,
         "spreadsheet_access_denied": 403,
         "spreadsheet_quota_exceeded": 429,
+        "unsupported_file_type": 415,
+        "file_parse_error": 400,
+        "file_format_error": 400,
     }
 
     @app.exception_handler(Talk2MyDataError)
