@@ -31,17 +31,8 @@ class ConnectorService:
     ) -> list[dict]:
         connector = ConnectorRegistry.get_connector(config)
 
-        if not await connector.test_connection():
-            # Import here to avoid circular imports
-            from app.connectors.adapters.google_sheets import get_service_account_email
-
-            sa_email = get_service_account_email()
-            raise ConnectorError(
-                config.connector_type,
-                f"Cannot access this spreadsheet. Please share it with: {sa_email} "
-                f"(set permission to 'Viewer'), then try again.",
-            )
-
+        # discover_datasets raises domain exceptions (SpreadsheetAccessError,
+        # FileParseError, etc.) which the centralized handler maps to status codes.
         available = await connector.discover_datasets()
 
         if selected_sheets:
@@ -50,7 +41,7 @@ class ConnectorService:
         if not available:
             raise ConnectorError(
                 config.connector_type,
-                "No sheets found to import. The spreadsheet may be empty.",
+                "No data found to import. The source may be empty.",
             )
 
         await self.dataset_service.ensure_user_dataset(user_id)

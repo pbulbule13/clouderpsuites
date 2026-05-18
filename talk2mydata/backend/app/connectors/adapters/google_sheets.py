@@ -12,6 +12,12 @@ from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 
 from app.common.async_utils import run_sync
+from app.common.exceptions import (
+    ConnectorError,
+    SpreadsheetAccessError,
+    SpreadsheetNotFoundError,
+    SpreadsheetQuotaError,
+)
 from app.config import settings
 from app.connectors.ports import ConnectorConfig, DataConnector, DatasetInfo
 from app.connectors.registry import ConnectorRegistry
@@ -66,10 +72,13 @@ class GoogleSheetsConnector(DataConnector):
 
         parsed = urlparse(url)
         if parsed.hostname != "docs.google.com":
-            raise ValueError("Only Google Sheets URLs (docs.google.com) are accepted")
+            raise ConnectorError(
+                "google_sheets",
+                "Only Google Sheets URLs (docs.google.com) are accepted.",
+            )
         match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
         if not match:
-            raise ValueError("Invalid Google Sheets URL format")
+            raise ConnectorError("google_sheets", "Invalid Google Sheets URL format.")
         return match.group(1)
 
     async def _get_client(self) -> gspread.Client:
@@ -124,16 +133,30 @@ class GoogleSheetsConnector(DataConnector):
         if self._spreadsheet is not None:
             return self._spreadsheet
         client = await self._get_client()
-        self._spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        try:
+            self._spreadsheet = await run_sync(client.open_by_key, self.spreadsheet_id)
+        except gspread.exceptions.SpreadsheetNotFound:
+            raise SpreadsheetNotFoundError()
+        except gspread.exceptions.APIError as e:
+            # Log the raw gspread text server-side only - it leaks the GCP project
+            # number and internal API URLs, so it must never reach the client.
+            logger.warning("Sheets API error for %s: %s", self.spreadsheet_id, e)
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status == 403:
+                raise SpreadsheetAccessError(get_service_account_email())
+            if status == 404:
+                raise SpreadsheetNotFoundError()
+            if status == 429:
+                raise SpreadsheetQuotaError()
+            raise ConnectorError(
+                "google_sheets", "Google Sheets API error. Please try again."
+            )
         return self._spreadsheet
 
     async def test_connection(self) -> bool:
         try:
             await self._get_spreadsheet()
             return True
-        except gspread.exceptions.APIError as e:
-            logger.warning("Sheets API error for %s: %s", self.spreadsheet_id, e)
-            return False
         except Exception as e:
             logger.warning("Connection test failed for %s: %s", self.spreadsheet_id, e)
             return False

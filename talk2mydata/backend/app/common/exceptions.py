@@ -47,6 +47,30 @@ class ConnectorError(Talk2MyDataError):
         )
 
 
+class SpreadsheetNotFoundError(Talk2MyDataError):
+    def __init__(self, detail: str = "Spreadsheet not found. Check the URL and try again."):
+        super().__init__(message=detail, code="spreadsheet_not_found")
+
+
+class SpreadsheetAccessError(Talk2MyDataError):
+    def __init__(self, sa_email: str):
+        super().__init__(
+            message=(
+                f"Cannot access this spreadsheet. Please share it with: {sa_email} "
+                f"(set permission to 'Viewer'), then try again."
+            ),
+            code="spreadsheet_access_denied",
+        )
+
+
+class SpreadsheetQuotaError(Talk2MyDataError):
+    def __init__(self):
+        super().__init__(
+            message="Google Sheets API rate limit reached. Please retry in a minute.",
+            code="spreadsheet_quota_exceeded",
+        )
+
+
 class QueryLimitExceededError(Talk2MyDataError):
     def __init__(self):
         super().__init__(

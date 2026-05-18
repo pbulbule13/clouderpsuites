@@ -24,9 +24,23 @@ logging.basicConfig(
 logger = logging.getLogger("talk2mydata")
 
 
+EXPECTED_CONNECTORS = {"google_sheets"}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Talk2MyData API")
+
+    from app.connectors.registry import ConnectorRegistry
+
+    missing = EXPECTED_CONNECTORS - ConnectorRegistry._connectors.keys()
+    if missing:
+        raise RuntimeError(
+            f"Connector registry incomplete at boot: missing {sorted(missing)}. "
+            f"Check side-effect imports in app/connectors/__init__.py."
+        )
+    logger.info("Connectors registered: %s", sorted(ConnectorRegistry._connectors))
+
     app.state.bq_client = bigquery.Client(project=settings.GCP_PROJECT)
     app.state.firestore_client = firestore.AsyncClient(project=settings.GCP_PROJECT)
     app.state.genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -75,6 +89,9 @@ def create_app() -> FastAPI:
         "column_limit_exceeded": 422,
         "query_limit_exceeded": 429,
         "sql_validation_error": 400,
+        "spreadsheet_not_found": 404,
+        "spreadsheet_access_denied": 403,
+        "spreadsheet_quota_exceeded": 429,
     }
 
     @app.exception_handler(Talk2MyDataError)
