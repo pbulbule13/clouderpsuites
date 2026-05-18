@@ -6,9 +6,8 @@ import { MessageSquare, Sparkles } from "lucide-react";
 import { MessageList } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { getToken } from "@/lib/auth";
+import { API_URL } from "@/lib/api-client";
 import type { ChatMessage } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 const SUGGESTED_QUESTIONS = [
   "What are the top 10 rows in this dataset?",

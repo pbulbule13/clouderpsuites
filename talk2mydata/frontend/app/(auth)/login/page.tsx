@@ -1,18 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
-import { setToken, setUser } from "@/lib/auth";
-import { apiClient } from "@/lib/api-client";
+import { setToken, setUser, clearAuth } from "@/lib/auth";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { jwtDecode } from "@/lib/jwt";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const handleSuccess = async (credentialResponse: CredentialResponse) => {
     const token = credentialResponse.credential;
     if (!token) return;
 
+    setLoginError(null);
     setToken(token);
 
     // Decode token for user info
@@ -27,8 +30,21 @@ export default function LoginPage() {
     // Verify with backend (creates user if needed)
     try {
       await apiClient.post("/api/v1/auth/verify");
-    } catch {
-      // Non-blocking - user record will be created on next request
+    } catch (err) {
+      console.error("auth verify failed", err);
+      clearAuth();
+      if (err instanceof ApiError && err.status === 403) {
+        setLoginError(
+          "Your account isn't on the access list yet. Contact your administrator."
+        );
+      } else {
+        setLoginError(
+          err instanceof Error
+            ? err.message
+            : "Sign-in failed. Please try again."
+        );
+      }
+      return;
     }
 
     router.push("/dashboard");
@@ -48,7 +64,9 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <GoogleLogin
               onSuccess={handleSuccess}
-              onError={() => {}}
+              onError={() =>
+                setLoginError("Google sign-in failed. Please try again.")
+              }
               theme="outline"
               size="large"
               text="signin_with"
@@ -56,6 +74,14 @@ export default function LoginPage() {
               width="300"
             />
           </div>
+          {loginError && (
+            <p
+              role="alert"
+              className="text-sm text-destructive text-center mt-4"
+            >
+              {loginError}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground text-center mt-4">
             By signing in, you agree to our Terms of Service and Privacy Policy.
           </p>

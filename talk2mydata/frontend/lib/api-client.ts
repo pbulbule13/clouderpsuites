@@ -1,6 +1,15 @@
 import { getToken, clearAuth } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+/** Error carrying the HTTP status so callers can branch on 403 vs 500 etc. */
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 class ApiClient {
   private baseUrl: string;
@@ -31,14 +40,14 @@ class ApiClient {
     if (response.status === 401) {
       clearAuth();
       window.location.href = "/login";
-      throw new Error("Unauthorized");
+      throw new ApiError(401, "Unauthorized");
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        detail: "An error occurred",
-      }));
-      throw new Error(error.detail || error.message || "Request failed");
+      const body = await response.json().catch(() => ({}));
+      const message =
+        body.message || body.detail || body.error || "Request failed";
+      throw new ApiError(response.status, message);
     }
 
     return response.json();
