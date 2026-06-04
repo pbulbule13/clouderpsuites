@@ -5,4 +5,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 ENV PORT=8080
-CMD exec gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind :${PORT} --max-requests 1000 --max-requests-jitter 100 --timeout 300 --limit-request-line 8190 --limit-request-body 10485760 --access-logfile - --error-logfile -
+# Note: gunicorn has no --limit-request-body option; the 10 MB upload cap is
+# enforced in the app while streaming (app/connectors/adapters/_file_utils.py).
+CMD exec gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind :${PORT} --max-requests 1000 --max-requests-jitter 100 --timeout 300 --limit-request-line 8190 --access-logfile - --error-logfile -

@@ -43,7 +43,16 @@ async def lifespan(app: FastAPI):
 
     app.state.bq_client = bigquery.Client(project=settings.GCP_PROJECT)
     app.state.firestore_client = firestore.AsyncClient(project=settings.GCP_PROJECT)
-    app.state.genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    if settings.GEMINI_USE_VERTEX:
+        app.state.genai_client = genai.Client(
+            vertexai=True,
+            project=settings.GCP_PROJECT,
+            location=settings.GCP_LOCATION,
+        )
+        logger.info("Gemini client: Vertex AI backend (%s)", settings.GCP_LOCATION)
+    else:
+        app.state.genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        logger.info("Gemini client: AI Studio API-key backend")
     logger.info("All clients initialized successfully")
     yield
     app.state.bq_client.close()

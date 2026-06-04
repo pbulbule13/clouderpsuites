@@ -5,7 +5,12 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     GCP_PROJECT: str
     GCP_LOCATION: str = "us-central1"
-    GEMINI_API_KEY: str
+    # Gemini access. With GEMINI_USE_VERTEX=True (default) the app calls Gemini
+    # through Vertex AI using ADC (the runtime service account), billed
+    # pay-as-you-go to the project's Cloud Billing account. Set False to fall
+    # back to the AI Studio API key (requires a valid, funded GEMINI_API_KEY).
+    GEMINI_USE_VERTEX: bool = True
+    GEMINI_API_KEY: str = ""
     GOOGLE_CLIENT_ID: str
 
     GOOGLE_SHEETS_CLIENT_ID: str = ""
